@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>2.6.4</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>org.clinbioinfosspa.mmp</groupId>
+	<artifactId>server</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>server</name>
+	<description>Server for OpenMMP Project</description>
+	<properties>
+		<java.version>17</java.version>
+		<jooq.version>3.16.5</jooq.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.12.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.zaxxer</groupId>
+			<artifactId>HikariCP</artifactId>
+			<version>5.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>1.18.22</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.ehcache</groupId>
+			<artifactId>ehcache</artifactId>
+			<version>3.10.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.protobuf</groupId>
+			<artifactId>protobuf-java</artifactId>
+			<version>3.19.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jooq</groupId>
+			<artifactId>jooq</artifactId>
+			<version>3.16.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-ui</artifactId>
+			<version>1.6.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>${project.basedir}/src/main/resources</directory>
+				<filtering>true</filtering>
+			</resource>
+			<resource>
+				<directory>${project.build.directory}/generated-sources/jooq</directory>
+			</resource>
+		</resources>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.1.0</version>
+				<configuration>
+					<delimiters>
+						<delimiter>@</delimiter>
+					</delimiters>
+					<useDefaultDelimiters>false</useDefaultDelimiters>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.jooq</groupId>
+				<artifactId>jooq-codegen-maven</artifactId>
+				<version>${jooq.version}</version>
+				<executions>
+					<execution>
+						<id>jooq-codegen</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+						<configuration>
+							<jdbc>
+								<driver>org.postgresql.Driver</driver>
+								<url>${postgres.uri}</url>
+								<user>${postgres.username}</user>
+								<password>${postgres.password}</password>
+							</jdbc>
+							<generator>
+								<name>org.jooq.codegen.JavaGenerator</name>
+								<database>
+									<name>org.jooq.meta.postgres.PostgresDatabase</name>
+									<inputSchema>public</inputSchema>
+									<includeTables>true</includeTables>
+									<includeInvisibleColumns>false</includeInvisibleColumns>
+									<includeEmbeddables>false</includeEmbeddables>
+									<includeRoutines>false</includeRoutines>
+									<includePackages>false</includePackages>
+									<includePackageRoutines>false</includePackageRoutines>
+									<includePackageUDTs>false</includePackageUDTs>
+									<includePackageConstants>false</includePackageConstants>
+									<includeUDTs>false</includeUDTs>
+									<includeDomains>false</includeDomains>
+									<includeSequences>false</includeSequences>
+									<includePrimaryKeys>false</includePrimaryKeys>
+									<includeUniqueKeys>false</includeUniqueKeys>
+									<includeForeignKeys>false</includeForeignKeys>
+									<includeCheckConstraints>false</includeCheckConstraints>
+									<includeSystemCheckConstraints>false</includeSystemCheckConstraints>
+									<includeIndexes>false</includeIndexes>
+									<includeSystemIndexes>false</includeSystemIndexes>
+									<!--
+                                        <recordVersionFields>REC_VERSION</recordVersionFields>
+                                        <recordTimestampFields>REC_TIMESTAMP</recordTimestampFields>
+                                    -->
+								</database>
+								<!-- Optional: The programmatic or configurative generator strategy. -->
+								<strategy/>
+
+								<!-- <javaTimeTypes>true</javaTimeTypes> -->
+
+								<!-- Optional: The jooq-codegen configuration, configuring the generated output content. -->
+								<generate/>
+
+								<!-- Optional: The generation output target -->
+								<target>
+									<clean>true</clean>
+									<packageName>org.clinbioinfosspa.mmp.storage.postgres.jooq</packageName>
+									<directory>${project.build.directory}/generated-sources/jooq</directory>
+								</target>
+
+							</generator>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
