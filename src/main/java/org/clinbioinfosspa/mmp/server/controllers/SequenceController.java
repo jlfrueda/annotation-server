@@ -1,21 +1,29 @@
 package org.clinbioinfosspa.mmp.server.controllers;
 
+import com.google.protobuf.CodedInputStream;
 import lombok.extern.java.Log;
 import org.apache.commons.lang3.StringUtils;
+import org.clinbioinfosspa.mmp.server.common.SequenceTranslator;
 import org.clinbioinfosspa.mmp.server.entities.Variant;
 import org.clinbioinfosspa.mmp.server.models.Assembly;
 import org.clinbioinfosspa.mmp.server.services.SequenceService;
 import org.clinbioinfosspa.mmp.server.services.VariantService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.annotation.PostConstruct;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 @Log
 @CrossOrigin(origins = "*", methods = {RequestMethod.OPTIONS, RequestMethod.GET, RequestMethod.PUT, RequestMethod.POST, RequestMethod.DELETE})
@@ -28,6 +36,20 @@ public class SequenceController {
 
     @Autowired
     private VariantService variantService;
+
+    @Value("${assemblies.cache.path}")
+    private String asssemblyCachePath;
+
+    private Assembly grch37;
+
+    @PostConstruct
+    public void setup() throws IOException {
+        var path = Paths.get(asssemblyCachePath, "GCA_000001405.14");
+        try (var stream = Files.newInputStream(path)) {
+            this.grch37 = Assembly.parseFrom(stream);
+        }
+    }
+
 
     @GetMapping("/assemblies/{assemblyId}")
     public ResponseEntity<Assembly> getAssembly(@PathVariable String assemblyId) {
@@ -62,39 +84,37 @@ public class SequenceController {
         }
     }
 
-    @PostMapping("/files")
-    public ResponseEntity<String> handleFileUpload(@RequestParam("file") MultipartFile file, RedirectAttributes redirectAttributes) {
+    @PostMapping(value = "/dbsnp", produces="text/plain")
+    public ResponseEntity<String> handleFileUpload(@RequestBody String text) {
         var builder = new StringBuilder();
-        try (var stream = file.getInputStream(); var reader = new BufferedReader(new InputStreamReader(stream))) {
-            for (var line = reader.readLine(); null != line; line = reader.readLine()) {
-                line = StringUtils.trimToEmpty(line);
-                if (StringUtils.isNotBlank(line)) {
-                    var fields = Arrays.stream(StringUtils.splitByWholeSeparatorPreserveAllTokens(line, ":")).map(s -> StringUtils.trimToEmpty(s)).map(s -> "-".equals(s) ? "" : s).toArray(String[]::new);
-                    if (4 != fields.length) {
-                        builder.append(line).append("\n");
-                    } else {
-                        var sequenceId = fields[0];
-                        var position = Long.parseLong(fields[1]) - 1;
-                        var reference = fields[2];
-                        var alternate = fields[3];
-                        var orig = new Variant(sequenceId, position, reference, alternate);
-                        var variant = variantService.normalize(orig);
-                        var refSnp = variantService.getRefSnp(variant);
-
-
-
-
-
-                    }
+        var translator = new SequenceTranslator(grch37);
+        text.lines().forEach(line -> {
+            var fields = Arrays.stream(StringUtils.splitByWholeSeparatorPreserveAllTokens(line, ":")).map(s -> StringUtils.trimToEmpty(s)).map(s -> "-".equals(s) ? "" : s).toArray(String[]::new);
+            if (4 != fields.length) {
+                builder.append(line);
+            } else {
+                var sequenceId = fields[0];
+                var position = Long.parseLong(fields[1]);
+                var reference = fields[2];
+                var alternate = fields[3];
+                var orig = new Variant(sequenceId, position, reference, alternate);
+                var variant = variantService.normalize(new Variant(translator.translate(sequenceId), position - 1, reference, alternate));
+                builder.append(orig).append("\t").append(variant);
+                try {
+                    String refSnp = variantService.getRefSnp(variant);
+                    builder.append("\t").append(refSnp);
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-        } catch (IOException e) {
-            return ResponseEntity.internalServerError().build();
-        }
+            builder.append("\n");
+        });
+        return ResponseEntity.ok(builder.toString());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleException(Exception exc) {
+        log.log(Level.WARNING, exc.getMessage(), exc);
         return ResponseEntity.internalServerError().build();
     }
 }

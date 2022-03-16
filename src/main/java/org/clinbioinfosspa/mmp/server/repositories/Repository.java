@@ -38,11 +38,11 @@ public class Repository implements AutoCloseable {
         c = c.and(DBSNP.POSITION.eq(variant.position()));
         c = c.and(DBSNP.REFERENCE.eq(variant.reference()));
         c = c.and(DBSNP.ALTERNATE.eq(variant.alternate()));
-        var record = context.selectOne().from(DBSNP).where(c).fetchOne();
+        var record = context.select().from(DBSNP).where(c).fetchOne();
         if (null != record) {
             return record.getValue(DBSNP.REFSNP);
         } else {
-            return null;
+            return "";
         }
     }
 }

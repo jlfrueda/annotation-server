@@ -79,6 +79,9 @@ public class VariantService {
         }
     }
 
-    public String getRefSnp(Variant variant) {
+    public String getRefSnp(Variant variant) throws Exception {
+        try (var repository = repositoryFactory.create()) {
+            return repository.queryRefSnp(variant);
+        }
     }
 }
