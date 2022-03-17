@@ -1,5 +1,6 @@
 package org.clinbioinfosspa.mmp.server.services;
 
+import org.clinbioinfosspa.mmp.server.common.Nucleotide;
 import org.clinbioinfosspa.mmp.server.entities.Variant;
 import org.clinbioinfosspa.mmp.server.repositories.RepositoryFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,12 +29,12 @@ public class VariantService {
         int nref = reference.length();
         int nalt = alternate.length();
 
-        while (nref > 0 && nalt > 0 && reference.charAt(nref - 1) == alternate.charAt(nalt - 1)) {
+        while (nref > 0 && nalt > 0 && Nucleotide.compatible(reference.charAt(nref - 1), alternate.charAt(nalt - 1))) {
             --nref;
             --nalt;
         }
         int offset = 0;
-        while (nref > 0 && nalt > 0 && reference.charAt(offset) == alternate.charAt(offset)) {
+        while (nref > 0 && nalt > 0 && Nucleotide.compatible(reference.charAt(offset), alternate.charAt(offset))) {
             ++offset;
             --nref;
             --nalt;
@@ -58,10 +59,12 @@ public class VariantService {
             var bud = 0 == nalt ? reference : alternate;
             int nbud = Math.max(nref, nalt);
             int sigma = (int)nbud - (int)(position % (long)nbud);
+
             long s = position;
-            for (; s > 0 && sequenceService.getReference(sequenceId, s - 1) == bud.charAt((int)((s + sigma - 1) % nbud)); --s);
+            for (; s > 0 && Nucleotide.compatible(sequenceService.getReference(sequenceId, s - 1), bud.charAt((int)((s + sigma - 1) % nbud))); --s);
             long e = position + nref;
-            for (; /* e <= reference.length && */ sequenceService.getReference(sequenceId, e) == bud.charAt((int)((e + sigma) % nbud)); ++e);
+            for (; /* e <= reference.length && */ Nucleotide.compatible(sequenceService.getReference(sequenceId, e), bud.charAt((int)((e + sigma) % nbud))); ++e);
+
             if (position == s && position + nref == e) {
                 return variant;
             } else {

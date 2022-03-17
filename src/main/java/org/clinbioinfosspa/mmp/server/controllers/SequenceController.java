@@ -1,6 +1,5 @@
 package org.clinbioinfosspa.mmp.server.controllers;
 
-import com.google.protobuf.CodedInputStream;
 import lombok.extern.java.Log;
 import org.apache.commons.lang3.StringUtils;
 import org.clinbioinfosspa.mmp.server.common.SequenceTranslator;
@@ -12,23 +11,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import javax.annotation.PostConstruct;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.logging.Level;
-import java.util.stream.Collectors;
 
 @Log
 @CrossOrigin(origins = "*", methods = {RequestMethod.OPTIONS, RequestMethod.GET, RequestMethod.PUT, RequestMethod.POST, RequestMethod.DELETE})
 @RestController
-@RequestMapping(path="/api/v1")
+@RequestMapping(path = "/api/v1")
 public class SequenceController {
 
     @Autowired
@@ -47,6 +41,9 @@ public class SequenceController {
         var path = Paths.get(asssemblyCachePath, "GCA_000001405.14");
         try (var stream = Files.newInputStream(path)) {
             this.grch37 = Assembly.parseFrom(stream);
+        } catch (Exception e) {
+            log.log(Level.SEVERE, "Cannot load assemblies", e);
+            assert false;
         }
     }
 
@@ -84,7 +81,7 @@ public class SequenceController {
         }
     }
 
-    @PostMapping(value = "/dbsnp", produces="text/plain")
+    @PostMapping(value = "/dbsnp", produces = "text/plain")
     public ResponseEntity<String> handleFileUpload(@RequestBody String text) {
         var builder = new StringBuilder();
         var translator = new SequenceTranslator(grch37);
@@ -93,18 +90,25 @@ public class SequenceController {
             if (4 != fields.length) {
                 builder.append(line);
             } else {
-                var sequenceId = fields[0];
+                var sequenceName = fields[0];
                 var position = Long.parseLong(fields[1]);
                 var reference = fields[2];
                 var alternate = fields[3];
-                var orig = new Variant(sequenceId, position, reference, alternate);
-                var variant = variantService.normalize(new Variant(translator.translate(sequenceId), position - 1, reference, alternate));
-                builder.append(orig).append("\t").append(variant);
-                try {
-                    String refSnp = variantService.getRefSnp(variant);
-                    builder.append("\t").append(refSnp);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                var orig = new Variant(sequenceName, position, reference, alternate);
+                var sequenceId = translator.translate(sequenceName);
+                var variant = new Variant(sequenceId, position - 1, reference, alternate);
+                builder.append(orig).append("\t");
+                if (sequenceService.checkReference(variant.sequenceId(), variant.position(), variant.reference())) {
+                    variant = variantService.normalize(variant);
+                    builder.append(variant);
+                    try {
+                        String refSnp = variantService.getRefSnp(variant);
+                        builder.append("\t").append(refSnp);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    builder.append("REFERENCE ERROR: ").append(variant.sequenceId()).append(":").append(variant.position()).append(" = ").append(sequenceService.getReference(sequenceId, variant.position(), variant.position() + variant.reference().length()));
                 }
             }
             builder.append("\n");

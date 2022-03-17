@@ -1,6 +1,7 @@
 package org.clinbioinfosspa.mmp.server.services;
 
 import org.apache.commons.lang3.StringUtils;
+import org.clinbioinfosspa.mmp.server.common.Nucleotide;
 import org.ehcache.Cache;
 import org.ehcache.CacheManager;
 import org.ehcache.config.builders.CacheConfigurationBuilder;
@@ -27,15 +28,15 @@ public class SequenceService {
 
     public char getReference(String sequenceId, long position) {
         int page = (int)(position / (long)SEQUENCE_CHUNK_SIZE);
-        int offset = (int)(position % (long)SEQUENCE_CHUNK_SIZE);
-        var cacheId = sequenceId + "|" + Long.toString(page);
-        var sequence = sequenceCache.get(sequenceId);
+        int offset = (int)(position - (long)page * (long)SEQUENCE_CHUNK_SIZE);
+        var cacheId = sequenceId + "|" + Integer.toString(page);
+        var sequence = sequenceCache.get(cacheId);
         if (null == sequence)
         {
-            sequence = readSequencePage(sequenceId, page);
-            sequenceCache.put(sequenceId, sequence);
+            sequence = readSequencePage(sequenceId, page).toUpperCase();
+            sequenceCache.put(cacheId, sequence);
         }
-        return sequence.charAt(offset);
+        return offset < sequence.length() ? sequence.charAt(offset) : 'N' ;
     }
 
     public String getReference(String sequenceId, long start, long end) {
@@ -51,7 +52,18 @@ public class SequenceService {
         try {
             return Files.readString(path);
         } catch (IOException e) {
-            return StringUtils.repeat('N', SEQUENCE_CHUNK_SIZE);
+            e.printStackTrace();
+            return StringUtils.EMPTY;
         }
+    }
+
+    public boolean checkReference(String sequenceId, long position, String reference) {
+        for (int idx = 0; idx < reference.length(); ++idx) {
+            var r = getReference(sequenceId, position + idx);
+            if (Nucleotide.incompatible(r, reference.charAt(idx))) {
+                return false;
+            }
+        }
+        return true;
     }
 }
